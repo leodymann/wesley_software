@@ -3,19 +3,28 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import DBSession
 from app.infra.models import FinanceORM, FinanceStatus, WppSendStatus
 from app.schemas.finance import FinanceCreate, FinanceUpdate, FinancePay, FinanceOut
+from app.api.auth_deps import require_roles
+from app.infra.models import UserRole
+from fastapi import Depends
+from app.api.auth_deps import get_current_user
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
 
 
 @router.post("", response_model=FinanceOut, status_code=201)
-def create_finance(payload: FinanceCreate, db: Session = DBSession):
+def create_finance(
+    payload: FinanceCreate,
+    db: Session = DBSession,
+    _user = Depends(require_roles(UserRole.ADMIN)),
+):
     try:
         status = FinanceStatus(payload.status)
     except Exception:
@@ -42,6 +51,7 @@ def create_finance(payload: FinanceCreate, db: Session = DBSession):
 @router.get("", response_model=list[FinanceOut])
 def list_finance(
     db: Session = DBSession,
+    _user = Depends(require_roles(UserRole.ADMIN)),
     status: Optional[str] = Query(default=None, description="PENDING|PAID|CANCELED"),
     company: Optional[str] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
@@ -64,7 +74,7 @@ def list_finance(
 
 
 @router.get("/{finance_id}", response_model=FinanceOut)
-def get_finance(finance_id: int, db: Session = DBSession):
+def get_finance(finance_id: int, db: Session = DBSession, _user = Depends(require_roles(UserRole.ADMIN)),):
     row = db.get(FinanceORM, finance_id)
     if not row:
         raise HTTPException(status_code=404, detail="Finance não encontrado.")
@@ -72,7 +82,7 @@ def get_finance(finance_id: int, db: Session = DBSession):
 
 
 @router.put("/{finance_id}", response_model=FinanceOut)
-def update_finance(finance_id: int, payload: FinanceUpdate, db: Session = DBSession):
+def update_finance(finance_id: int, payload: FinanceUpdate, db: Session = DBSession, _user = Depends(require_roles(UserRole.ADMIN)),):
     row = db.get(FinanceORM, finance_id)
     if not row:
         raise HTTPException(status_code=404, detail="Finance não encontrado.")
@@ -99,7 +109,7 @@ def update_finance(finance_id: int, payload: FinanceUpdate, db: Session = DBSess
 
 
 @router.post("/{finance_id}/pay", response_model=FinanceOut)
-def pay_finance(finance_id: int, payload: FinancePay, db: Session = DBSession):
+def pay_finance(finance_id: int, payload: FinancePay, db: Session = DBSession, _user = Depends(require_roles(UserRole.ADMIN)),):
     row = db.get(FinanceORM, finance_id)
     if not row:
         raise HTTPException(status_code=404, detail="Finance não encontrado.")

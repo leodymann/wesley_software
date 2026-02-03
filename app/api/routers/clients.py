@@ -9,7 +9,11 @@ from app.api.deps import DBSession
 from app.infra.models import ClientORM
 from app.schemas.clients import ClientCreate, ClientUpdate, ClientOut
 
-router = APIRouter()
+from fastapi import Depends
+from app.api.auth_deps import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
 
 
 def normalize_phone(phone: str) -> str:

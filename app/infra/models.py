@@ -138,6 +138,36 @@ class ProductORM(Base):
     sale: Mapped[Optional["SaleORM"]] = relationship(back_populates="product", uselist=False)
     promissories: Mapped[List["PromissoryORM"]] = relationship(back_populates="product")
 
+    # ✅ NOVO: imagens do produto
+    images: Mapped[List["ProductImageORM"]] = relationship(
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="ProductImageORM.position",
+    )
+
+class ProductImageORM(Base):
+    __tablename__ = "product_images"
+    __table_args__ = (
+        UniqueConstraint("product_id", "position", name="uq_product_images_product_position"),
+        Index("ix_product_images_product_id", "product_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+
+    # caminho/URL servida pela API (ex: "/static/products/123/abc.jpg")
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # 1..4 (ordem)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    product: Mapped["ProductORM"] = relationship(back_populates="images")
+
 class SaleORM(Base):
     __tablename__ = "sales"
     __table_args__ = (

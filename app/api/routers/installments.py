@@ -9,7 +9,11 @@ from app.infra.models import InstallmentORM
 from app.schemas.installments import InstallmentOut, InstallmentPay
 from app.services.sales_service import pay_installment
 
-router = APIRouter()
+from fastapi import Depends
+from app.api.auth_deps import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
 
 @router.get("", response_model=list[InstallmentOut])
 def list_installments(

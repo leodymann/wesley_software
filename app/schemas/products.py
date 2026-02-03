@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from decimal import Decimal
 
 
@@ -11,14 +11,15 @@ class ProductCreate(BaseModel):
     year: int = Field(ge=1900, le=2100)
 
     plate: Optional[str] = Field(default=None, max_length=10)
-    chassi: str = Field(min_length=5, max_length=30)  # chassi único
+    chassi: str = Field(min_length=5, max_length=30)
     km: Optional[int] = Field(default=None, ge=0)
     color: str = Field(min_length=1, max_length=30)
 
     cost_price: Decimal = Field(default=Decimal("0.00"), ge=0)
     sale_price: Decimal = Field(default=Decimal("0.00"), ge=0)
 
-    status: Optional[str] = None  # in_stock, sold e canceled
+    status: Optional[str] = None
+
 
 class ProductUpdate(BaseModel):
     brand: Optional[str] = Field(default=None, min_length=2, max_length=60)
@@ -36,6 +37,14 @@ class ProductUpdate(BaseModel):
     status: Optional[str] = None
 
 
+class ProductImageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    url: str
+    position: int
+
+
 class ProductOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,3 +59,5 @@ class ProductOut(BaseModel):
     cost_price: Decimal
     sale_price: Decimal
     status: str
+
+    images: List[ProductImageOut] = []

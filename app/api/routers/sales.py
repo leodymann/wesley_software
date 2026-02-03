@@ -10,8 +10,11 @@ from app.schemas.promissories import PromissoryOut
 from app.services.sales_service import create_sale, list_sales, update_sale_status
 from app.infra.models import PaymentType
 
+from fastapi import Depends
+from app.api.auth_deps import get_current_user
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
 
 @router.patch("/{sale_id}/status", response_model=SaleOut)
 def update_sale_status_endpoint(

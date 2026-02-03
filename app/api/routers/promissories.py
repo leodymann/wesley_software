@@ -9,7 +9,11 @@ from app.infra.models import PromissoryORM, PromissoryStatus
 from app.schemas.promissories import PromissoryOut
 from app.services.sales_service import issue_promissory, cancel_promissory
 
-router = APIRouter()
+from fastapi import Depends
+from app.api.auth_deps import get_current_user
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
 
 @router.get("", response_model=list[PromissoryOut])
 def list_promissories(
@@ -43,7 +47,7 @@ def issue(prom_id: int, db: Session = DBSession):
         raise HTTPException(status_code=404, detail=str(e))
     return prom
 
-@router.patch("/promissories/{prom_id}/cancel", response_model=PromissoryOut)
+@router.patch("/{prom_id}/cancel", response_model=PromissoryOut)
 def cancel_promissory_endpoint(prom_id: int, db: Session = DBSession):
     try:
         prom = cancel_promissory(db, prom_id)
