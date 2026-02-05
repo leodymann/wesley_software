@@ -2,7 +2,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from decimal import Decimal
-from datetime import date
+from datetime import date, datetime
 from app.infra.models import SaleStatus
 class SaleCreate(BaseModel):
     client_id: int
@@ -27,6 +27,12 @@ class SaleOut(BaseModel):
     total: Decimal
     discount: Decimal
     entry_amount: Optional[Decimal]
+
+    client_id: int
+    product_id: int
+    user_id: int
+
+    created_at: datetime
 
 class SaleStatusUpdate(BaseModel):
     status: SaleStatus

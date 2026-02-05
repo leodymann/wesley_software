@@ -1,0 +1,21 @@
+/* ocupa tela inteira */
+html, body, #root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+
+  /* IMPORTANTÍSSIMO: remove o "centrão" do template Vite */
+  display: block;
+}
+
+/* garante que nada centralize o app */
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}

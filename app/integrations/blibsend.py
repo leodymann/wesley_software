@@ -74,7 +74,6 @@ def signin() -> _TokenCache:
 
     resp = requests.post(url, headers=headers, timeout=25)
 
-    # signin costuma ser 200+
     if resp.status_code >= 300:
         raise BlibsendError(f"Falha no signin ({resp.status_code}): {resp.text[:300]}")
 
@@ -113,30 +112,25 @@ def _normalize_to(to: Union[str, Iterable[str]]) -> List[str]:
     return [x for x in to]
 
 
-def send_whatsapp_text(*, to: Union[str, Iterable[str]], body: str) -> dict:
-    """
-    POST /messages/send
-    Headers:
-      Authorization: Bearer <token>
-      session_token: <uuid>
-      Content-Type: application/json
-    Body:
-      { "to": ["5562..."], "body": "Mensagem" }
-
-    Sucesso: 200 ou 201 (na prática pode voltar 200 mesmo com sucesso)
-    Erros: 422/401/500
-
-    Retorna o JSON de resposta em caso de sucesso.
-    """
-    url = f"{_base_url()}/messages/send"
-
-    token = get_token()
-    headers = {
+def _auth_headers(token: str) -> dict:
+    return {
         "Authorization": f"Bearer {token}",
         "session_token": _session_token(),
         "Content-Type": "application/json",
         "User-Agent": "wi_motos/1.0",
     }
+
+
+def send_whatsapp_text(*, to: Union[str, Iterable[str]], body: str) -> dict:
+    """
+    POST /messages/send
+    Body:
+      { "to": ["5562..."], "body": "Mensagem" }
+    """
+    url = f"{_base_url()}/messages/send"
+
+    token = get_token()
+    headers = _auth_headers(token)
 
     payload = {
         "to": _normalize_to(to),
@@ -149,14 +143,60 @@ def send_whatsapp_text(*, to: Union[str, Iterable[str]], body: str) -> dict:
         # token pode ter expirado/invalidado: renova uma vez e tenta novamente
         signin()
         token = get_token()
-        headers["Authorization"] = f"Bearer {token}"
+        headers = _auth_headers(token)
         resp = requests.post(url, json=payload, headers=headers, timeout=25)
 
     if resp.status_code in (200, 201):
-        # geralmente: {"message":"Message sent successfully!","metadata":{"message_id":...}}
         try:
             return resp.json()
         except Exception:
             return {"raw": resp.text}
 
     raise BlibsendError(f"Falha no envio ({resp.status_code}): {resp.text[:300]}")
+
+
+def send_whatsapp_group_file_datauri(*, to_group: str, type_: str, title: str, body: str) -> dict:
+    """
+    POST /messages/groups/send/file
+
+    Exemplo payload:
+      {
+        "to": "120363...@g.us",
+        "type": "image",
+        "title": "Teste",
+        "body": "data:image/jpeg;base64,..."
+      }
+    """
+    if not to_group.endswith("@g.us"):
+        raise BlibsendError("ID do grupo inválido. Esperado algo como 120363...@g.us")
+
+    # ✅ endpoint correto conforme doc
+    url = f"{_base_url()}/messages/groups/send/file"
+
+    token = get_token()
+    headers = _auth_headers(token)
+
+    payload = {
+        "to": to_group,
+        "type": type_,   # image|document|video|audio|sticker|text
+        "title": title,
+        "body": body,    # data:<mime>;base64,...
+    }
+
+    # timeout maior pq base64 pode ser pesado
+    resp = requests.post(url, json=payload, headers=headers, timeout=60)
+
+    if resp.status_code == 401:
+        # token expirou/invalidou: renova 1x e tenta novamente
+        signin()
+        token = get_token()
+        headers = _auth_headers(token)
+        resp = requests.post(url, json=payload, headers=headers, timeout=60)
+
+    if resp.status_code in (200, 201):
+        try:
+            return resp.json()
+        except Exception:
+            return {"raw": resp.text}
+
+    raise BlibsendError(f"Falha no envio grupo ({resp.status_code}): {resp.text[:300]}")

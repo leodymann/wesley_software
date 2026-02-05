@@ -350,3 +350,12 @@ class FinanceORM(Base):
     created_at:Mapped[datetime]=mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+class IntegrationTokenORM(Base):
+    __tablename__ = "integration_tokens"
+
+    provider: Mapped[str] = mapped_column(String(50), primary_key=True)
+    access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    token_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
