@@ -344,7 +344,7 @@ export default function Sales() {
         }}
       >
         <Form form={form} layout="vertical">
-          <Divider orientation="left" style={{ marginTop: 0 }}>
+          <Divider orientation="horizontal" style={{ marginTop: 0 }}>
             Dados principais
           </Divider>
 
@@ -378,7 +378,7 @@ export default function Sales() {
             <InputNumber controls={false} min={1} style={{ width: "100%" }} placeholder="Ex: 1" />
           </Form.Item>
 
-          <Divider orientation="left">Valores</Divider>
+          <Divider orientation="horizontal">Valores</Divider>
 
           <Row gutter={12}>
             <Col xs={24} md={8}>
@@ -400,7 +400,7 @@ export default function Sales() {
             </Col>
           </Row>
 
-          <Divider orientation="left">Pagamento</Divider>
+          <Divider orientation="horizontal">Pagamento</Divider>
 
           <Row gutter={12}>
             <Col xs={24} md={8}>

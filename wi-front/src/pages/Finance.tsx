@@ -35,13 +35,6 @@ function formatDateBR(v?: string) {
   return d.toLocaleDateString("pt-BR");
 }
 
-function formatDateTimeBR(v?: string) {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleString("pt-BR");
-}
-
 type AnyFinance = Finance;
 
 export default function Finance() {

@@ -212,7 +212,7 @@ export default function Clients() {
         }}
       >
         <Form form={form} layout="vertical" disabled={loadingDetails} autoComplete="off">
-          <Divider orientation="left" style={{ marginTop: 0 }}>
+          <Divider orientation="horizontal" style={{ marginTop: 0 }}>
             Dados do cliente
           </Divider>
 
@@ -281,7 +281,7 @@ export default function Clients() {
             </Col>
           </Row>
 
-          <Divider orientation="left" style={{ marginTop: 8 }}>
+          <Divider orientation="horizontal" style={{ marginTop: 8 }}>
             Observações
           </Divider>
 

@@ -112,3 +112,6 @@ lib-cov/
 .c9/
 .sync/
 .swp
+
+.worker_state/
+uploads/
