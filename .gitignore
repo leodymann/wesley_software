@@ -21,7 +21,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -84,7 +83,6 @@ lerna-debug.log*
 # Geralmente configurado no "outDir" do tsconfig.json
 /dist
 /build
-/lib
 /*.js.map # Ignora arquivos .js.map gerados diretamente na raiz
 /*.js     # Ignora arquivos .js gerados diretamente na raiz, exceto se configurado de outra forma
 
