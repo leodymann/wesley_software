@@ -6,9 +6,9 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
-from app.api.deps import DBSession  # se já existir, senão ajuste o import
-from app.config import JWT_SECRET_KEY, JWT_ALGORITHM
-from app.infra.models import UserORM, UserRole
+from api.deps import DBSession  # se já existir, senão ajuste o import
+from config import JWT_SECRET_KEY, JWT_ALGORITHM
+from infra.models import UserORM, UserRole
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

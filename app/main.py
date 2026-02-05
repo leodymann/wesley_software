@@ -3,18 +3,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 
-from app.infra.db import engine
-from app.infra.models import Base
+from infra.db import engine
+from infra.models import Base
 
-from app.api.routers.clients import router as clients_router
-from app.api.routers.products import router as products_router
-from app.api.routers.sales import router as sales_router
-from app.api.routers.promissories import router as promissories_router
-from app.api.routers.installments import router as installments_router
-from app.api.routers.users import router as users_router
-from app.api.routers.finance import router as finance_router
-from app.api.routers.auth import router as auth_router
-from app.infra.models import Base
+from api.routers.clients import router as clients_router
+from api.routers.products import router as products_router
+from api.routers.sales import router as sales_router
+from api.routers.promissories import router as promissories_router
+from api.routers.installments import router as installments_router
+from api.routers.users import router as users_router
+from api.routers.finance import router as finance_router
+from api.routers.auth import router as auth_router
+from infra.models import Base
 
 UPLOAD_ROOT = Path("uploads")
 

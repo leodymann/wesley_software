@@ -18,7 +18,7 @@ class PromissoryOut(BaseModel):
     sale_id: Optional[int]
 
 from pydantic import BaseModel, field_validator
-from app.infra.models import PromissoryStatus
+from infra.models import PromissoryStatus
 
 class PromissoryStatusUpdate(BaseModel):
     status: PromissoryStatus

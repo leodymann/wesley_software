@@ -7,13 +7,13 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import DBSession
-from app.infra.models import FinanceORM, FinanceStatus, WppSendStatus
-from app.schemas.finance import FinanceCreate, FinanceUpdate, FinancePay, FinanceOut
-from app.api.auth_deps import require_roles
-from app.infra.models import UserRole
+from api.deps import DBSession
+from infra.models import FinanceORM, FinanceStatus, WppSendStatus
+from schemas.finance import FinanceCreate, FinanceUpdate, FinancePay, FinanceOut
+from api.auth_deps import require_roles
+from infra.models import UserRole
 from fastapi import Depends
-from app.api.auth_deps import get_current_user
+from api.auth_deps import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

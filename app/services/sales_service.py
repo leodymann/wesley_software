@@ -8,9 +8,9 @@ from typing import Optional, Tuple
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from dateutil.relativedelta import relativedelta
-from app.infra.models import SaleORM, SaleStatus
+from infra.models import SaleORM, SaleStatus
 
-from app.infra.models import (
+from infra.models import (
     SaleORM,
     ProductORM,
     ClientORM,
@@ -23,7 +23,7 @@ from app.infra.models import (
     PromissoryStatus,
     InstallmentStatus,
 )
-from app.services.id_gen import generate_public_id
+from services.id_gen import generate_public_id
 
 
 

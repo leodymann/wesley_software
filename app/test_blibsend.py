@@ -1,4 +1,4 @@
-from app.integrations.blibsend import send_whatsapp_text
+from integrations.blibsend import send_whatsapp_text
 
 if __name__ == "__main__":
     send_whatsapp_text(

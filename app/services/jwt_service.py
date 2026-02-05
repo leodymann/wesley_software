@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from jose import jwt
 
-from app.config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRES_MINUTES
+from config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRES_MINUTES
 
 def create_access_token(*, sub: str, role: str) -> str:
     now = datetime.now(timezone.utc)

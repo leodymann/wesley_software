@@ -5,14 +5,14 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.infra.db import SessionLocal
-from app.infra.models import (
+from infra.db import SessionLocal
+from infra.models import (
     UserORM, UserRole,
     ClientORM,
     ProductORM, ProductStatus,
     PaymentType,
 )
-from app.services.sales_service import create_sale
+from services.sales_service import create_sale
 
 
 def fake_hash_password(p: str) -> str:

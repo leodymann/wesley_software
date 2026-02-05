@@ -14,8 +14,8 @@ from PIL import Image
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.infra.db import SessionLocal
-from app.infra.models import (
+from infra.db import SessionLocal
+from infra.models import (
     FinanceORM,
     FinanceStatus,
     InstallmentORM,
@@ -26,7 +26,7 @@ from app.infra.models import (
     ProductORM,
     ProductStatus,
 )
-from app.integrations.blibsend import (
+from integrations.blibsend import (
     BlibsendError,
     send_whatsapp_text,
     send_whatsapp_group_file_datauri,

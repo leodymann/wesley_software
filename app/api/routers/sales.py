@@ -4,14 +4,14 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import date
 from typing import Optional
-from app.api.deps import DBSession
-from app.schemas.sales import SaleCreate, SaleOut, SaleStatusUpdate
-from app.schemas.promissories import PromissoryOut
-from app.services.sales_service import create_sale, list_sales, update_sale_status
-from app.infra.models import PaymentType
+from api.deps import DBSession
+from schemas.sales import SaleCreate, SaleOut, SaleStatusUpdate
+from schemas.promissories import PromissoryOut
+from services.sales_service import create_sale, list_sales, update_sale_status
+from infra.models import PaymentType
 
 from fastapi import Depends
-from app.api.auth_deps import get_current_user
+from api.auth_deps import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

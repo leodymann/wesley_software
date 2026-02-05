@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import Optional
 
-from app.api.deps import DBSession
-from app.infra.models import UserORM, UserRole
-from app.schemas.users import UserCreate, UserOut
-from app.services.security import hash_password
+from api.deps import DBSession
+from infra.models import UserORM, UserRole
+from schemas.users import UserCreate, UserOut
+from services.security import hash_password
 
-from app.api.auth_deps import get_current_user
+from api.auth_deps import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

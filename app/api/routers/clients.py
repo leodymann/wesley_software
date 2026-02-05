@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import Optional
 
-from app.api.deps import DBSession
-from app.infra.models import ClientORM
-from app.schemas.clients import ClientCreate, ClientUpdate, ClientOut
+from api.deps import DBSession
+from infra.models import ClientORM
+from schemas.clients import ClientCreate, ClientUpdate, ClientOut
 
 from fastapi import Depends
-from app.api.auth_deps import get_current_user
+from api.auth_deps import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

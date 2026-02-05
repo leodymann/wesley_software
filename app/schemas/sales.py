@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from decimal import Decimal
 from datetime import date, datetime
-from app.infra.models import SaleStatus
+from infra.models import SaleStatus
 class SaleCreate(BaseModel):
     client_id: int
     user_id: int

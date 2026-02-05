@@ -1,8 +1,8 @@
-from app.infra.db import engine
-from app.infra.models import Base
+from infra.db import engine
+from infra.models import Base
 from sqlalchemy.orm import Session
-from app.infra.models import UserORM
-from app.services.security import hash_password  # ou sua função
+from infra.models import UserORM
+from services.security import hash_password  # ou sua função
 
 def main():
     Base.metadata.create_all(bind=engine)

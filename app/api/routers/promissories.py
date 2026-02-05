@@ -4,13 +4,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import Optional
 
-from app.api.deps import DBSession
-from app.infra.models import PromissoryORM, PromissoryStatus
-from app.schemas.promissories import PromissoryOut
-from app.services.sales_service import issue_promissory, cancel_promissory
+from api.deps import DBSession
+from infra.models import PromissoryORM, PromissoryStatus
+from schemas.promissories import PromissoryOut
+from services.sales_service import issue_promissory, cancel_promissory
 
 from fastapi import Depends
-from app.api.auth_deps import get_current_user
+from api.auth_deps import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

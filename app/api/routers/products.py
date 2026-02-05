@@ -12,12 +12,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DBSession
-from app.infra.models import ProductORM, ProductStatus, ProductImageORM
-from app.schemas.products import ProductUpdate, ProductOut
+from api.deps import DBSession
+from infra.models import ProductORM, ProductStatus, ProductImageORM
+from schemas.products import ProductUpdate, ProductOut
 
 from fastapi import Depends
-from app.api.auth_deps import get_current_user
+from api.auth_deps import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

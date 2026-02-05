@@ -4,13 +4,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import Optional
 
-from app.api.deps import DBSession
-from app.infra.models import InstallmentORM
-from app.schemas.installments import InstallmentOut, InstallmentPay
-from app.services.sales_service import pay_installment
+from api.deps import DBSession
+from infra.models import InstallmentORM
+from schemas.installments import InstallmentOut, InstallmentPay
+from services.sales_service import pay_installment
 
 from fastapi import Depends
-from app.api.auth_deps import get_current_user
+from api.auth_deps import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

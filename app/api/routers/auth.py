@@ -4,11 +4,11 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from app.api.deps import DBSession
-from app.infra.models import UserORM
-from app.schemas.auth import LoginIn, TokenOut
-from app.services.security import verify_password
-from app.services.jwt_service import create_access_token
+from api.deps import DBSession
+from infra.models import UserORM
+from schemas.auth import LoginIn, TokenOut
+from services.security import verify_password
+from services.jwt_service import create_access_token
 
 router = APIRouter()
 
