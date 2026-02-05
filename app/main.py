@@ -1,7 +1,11 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+from __future__ import annotations
+
+import os
 from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from infra.db import engine
 from infra.models import Base
@@ -14,20 +18,32 @@ from api.routers.installments import router as installments_router
 from api.routers.users import router as users_router
 from api.routers.finance import router as finance_router
 from api.routers.auth import router as auth_router
-from infra.models import Base
 
-UPLOAD_ROOT = Path("uploads")
+
+# ✅ Em produção (Railway + bucket), NÃO use uploads local.
+# Para dev/local, set: USE_LOCAL_UPLOADS=1
+USE_LOCAL_UPLOADS = os.getenv("USE_LOCAL_UPLOADS", "0").strip() == "1"
+UPLOAD_ROOT = Path(os.getenv("UPLOAD_ROOT", "uploads"))
+
 
 app = FastAPI(title="Moto Store API")
+
 
 @app.on_event("startup")
 def _startup() -> None:
     print("[startup] creating tables...")
     Base.metadata.create_all(bind=engine)
     print("[startup] tables created/checked")
-    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
-app.mount("/static", StaticFiles(directory=str(UPLOAD_ROOT)), name="static")
+    # ✅ só cria pasta se for usar uploads local
+    if USE_LOCAL_UPLOADS:
+        UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+
+
+# ✅ só monta /static se for usar uploads local
+if USE_LOCAL_UPLOADS:
+    app.mount("/static", StaticFiles(directory=str(UPLOAD_ROOT)), name="static")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +52,8 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        # ✅ opcional: libera seu domínio do Railway, se quiser CORS direto
+        # os.getenv("FRONTEND_ORIGIN", "").strip(),
     ],
     allow_credentials=True,
     allow_methods=["*"],

@@ -32,10 +32,10 @@ from integrations.blibsend import (
     send_whatsapp_group_file_datauri,
 )
 
+from infra.storage import get_bytes  # ✅ bucket privado (KEY -> bytes)
+
 # carrega .env quando rodar como script
 load_dotenv()
-
-UPLOAD_ROOT = Path("uploads")
 
 STATE_DIR = Path(".worker_state")
 STATE_DIR.mkdir(exist_ok=True)
@@ -102,10 +102,6 @@ def mark_failed_generic(
 
 
 def process_finance(db: Session, to_number: str) -> int:
-    """
-    envia aviso de contas pending com vencimento <= hoje.
-    Usa FinanceORM.wpp_* para retry e evitar duplicar.
-    """
     today = today_local_date()
 
     stmt = (
@@ -164,10 +160,7 @@ def process_finance(db: Session, to_number: str) -> int:
     return sent
 
 
-from sqlalchemy.orm import selectinload
-
 def format_br_phone(phone: str) -> str:
-    # espera "83999910018" (11 dígitos) ou "999910018" (9 dígitos)
     digits = "".join(ch for ch in (phone or "") if ch.isdigit())
     if len(digits) == 11:
         ddd = digits[:2]
@@ -183,12 +176,6 @@ def format_br_phone(phone: str) -> str:
 
 
 def process_installments_due_soon(db: Session, to_number: str) -> int:
-    """
-    envia lembrete de parcelas que vencem em N dias.
-    Formato:
-      José Paulo
-      (83) 99991-0018 • Honda Start 160 (2026) • Próx: R$ X • Venc: DD/MM/AAAA
-    """
     days = int(os.getenv("PROMISSORY_REMINDER_DAYS", "5"))
     today = today_local_date()
     target = today + timedelta(days=days)
@@ -198,7 +185,6 @@ def process_installments_due_soon(db: Session, to_number: str) -> int:
         .options(
             selectinload(InstallmentORM.promissory).selectinload(PromissoryORM.client),
             selectinload(InstallmentORM.promissory).selectinload(PromissoryORM.product),
-            # se no seu fluxo o produto vier pela sale, deixa esse também:
             selectinload(InstallmentORM.promissory)
             .selectinload(PromissoryORM.sale)
             .selectinload(SaleORM.product),
@@ -231,7 +217,6 @@ def process_installments_due_soon(db: Session, to_number: str) -> int:
         prom = inst.promissory
         client = prom.client if prom else None
 
-        # tenta pegar produto direto da promissory; se não tiver, tenta pela sale
         product = None
         if prom is not None:
             product = prom.product
@@ -241,12 +226,7 @@ def process_installments_due_soon(db: Session, to_number: str) -> int:
         client_name = (client.name if client else "-") or "-"
         client_phone = format_br_phone(client.phone if client else "")
 
-        if product:
-            moto_label = f"{product.brand} {product.model} ({product.year})"
-        else:
-            moto_label = "Produto -"
-
-        # formata data BR
+        moto_label = f"{product.brand} {product.model} ({product.year})" if product else "Produto -"
         due_str = inst.due_date.strftime("%d/%m/%Y")
 
         msg = (
@@ -266,25 +246,14 @@ def process_installments_due_soon(db: Session, to_number: str) -> int:
             inst.wa_due_tries = tries
             inst.wa_due_status = WppSendStatus.FAILED
             inst.wa_due_last_error = str(e)[:500]
-            inst.wa_due_next_retry_at = now_utc() + timedelta(
-                seconds=compute_backoff_seconds(tries)
-            )
+            inst.wa_due_next_retry_at = now_utc() + timedelta(seconds=compute_backoff_seconds(tries))
 
         db.flush()
 
     return sent
 
 
-
 def process_installments_overdue(db: Session, to_number: str) -> int:
-    """
-    envia aviso de parcelas atrasadas (Installment pending com due_date < hoje).
-
-    Formato:
-      ⚠️ PARCELA ATRASADA
-      José Paulo
-      (83) 99991-0018 • Honda Start 160 (2026) • Parcela: R$ X • Venc: DD/MM/AAAA
-    """
     today = today_local_date()
 
     stmt = (
@@ -292,7 +261,6 @@ def process_installments_overdue(db: Session, to_number: str) -> int:
         .options(
             selectinload(InstallmentORM.promissory).selectinload(PromissoryORM.client),
             selectinload(InstallmentORM.promissory).selectinload(PromissoryORM.product),
-            # fallback caso produto venha da sale:
             selectinload(InstallmentORM.promissory)
             .selectinload(PromissoryORM.sale)
             .selectinload(SaleORM.product),
@@ -334,10 +302,7 @@ def process_installments_overdue(db: Session, to_number: str) -> int:
         client_name = (client.name if client else "-") or "-"
         client_phone = format_br_phone(client.phone if client else "")
 
-        moto_label = (
-            f"{product.brand} {product.model} ({product.year})" if product else "Produto -"
-        )
-
+        moto_label = f"{product.brand} {product.model} ({product.year})" if product else "Produto -"
         due_str = inst.due_date.strftime("%d/%m/%Y")
 
         msg = (
@@ -358,60 +323,69 @@ def process_installments_overdue(db: Session, to_number: str) -> int:
             inst.wa_overdue_tries = tries
             inst.wa_overdue_status = WppSendStatus.FAILED
             inst.wa_overdue_last_error = str(e)[:500]
-            inst.wa_overdue_next_retry_at = now_utc() + timedelta(
-                seconds=compute_backoff_seconds(tries)
-            )
+            inst.wa_overdue_next_retry_at = now_utc() + timedelta(seconds=compute_backoff_seconds(tries))
 
         db.flush()
 
     return sent
 
 
-def image_to_data_uri_jpeg_optimized(
-    file_path: str,
+def image_bytes_to_data_uri_jpeg_optimized(
+    image_bytes: bytes,
     *,
     max_dim: int,
     quality: int,
     max_bytes: int,
 ) -> str:
     """
-    Lê a imagem, reduz dimensão, reencoda como JPEG e retorna:
+    Recebe bytes (png/jpg/webp), reduz dimensão, reencoda como JPEG e retorna:
       data:image/jpeg;base64,...
-    max_bytes é o tamanho do JPEG antes do base64 (base64 aumenta ~33%).
     """
-    p = Path(file_path)
-    if not p.exists():
-        raise BlibsendError(f"Arquivo não encontrado: {file_path}")
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img = img.convert("RGB")
 
-    with Image.open(p) as img:
-        img = img.convert("RGB")
+            w, h = img.size
+            scale = min(1.0, max_dim / float(max(w, h)))
+            if scale < 1.0:
+                img = img.resize((int(w * scale), int(h * scale)))
 
-        w, h = img.size
-        scale = min(1.0, max_dim / float(max(w, h)))
-        if scale < 1.0:
-            img = img.resize((int(w * scale), int(h * scale)))
+            q = int(quality)
+            while True:
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=q, optimize=True)
+                raw = buf.getvalue()
 
-        q = int(quality)
-        while True:
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=q, optimize=True)
-            raw = buf.getvalue()
+                if len(raw) <= max_bytes or q <= 35:
+                    b64 = base64.b64encode(raw).decode("utf-8")
+                    return f"data:image/jpeg;base64,{b64}"
 
-            if len(raw) <= max_bytes or q <= 35:
-                b64 = base64.b64encode(raw).decode("utf-8")
-                return f"data:image/jpeg;base64,{b64}"
+                q -= 10
+    except Exception as e:
+        raise BlibsendError(f"Erro ao processar imagem (PIL): {e}")
 
-            q -= 10
+
+def load_cover_bytes(cover_ref: str) -> bytes:
+    """
+    cover_ref é a KEY salva no DB (ex: "products/12/abc.jpg").
+    """
+    cover_ref = (cover_ref or "").strip()
+    if not cover_ref:
+        raise BlibsendError("cover.url vazio")
+
+    # compatibilidade (se tiver alguma URL antiga salva no DB)
+    if cover_ref.startswith("http://") or cover_ref.startswith("https://"):
+        import requests
+        timeout = float(os.getenv("OFFERS_IMAGE_FETCH_TIMEOUT", "10"))
+        r = requests.get(cover_ref, timeout=timeout, headers={"User-Agent": "wi-motos-worker/1.0"})
+        r.raise_for_status()
+        return r.content
+
+    # ✅ caminho padrão: KEY no bucket privado
+    return get_bytes(cover_ref)
 
 
 def process_daily_product_offers(db: Session, group_to: str) -> int:
-    """
-    Envia ofertas diárias para grupo:
-      - apenas IN_STOCK
-      - manda a primeira imagem do produto
-      - intervalo entre envios
-      - limite por dia
-    """
     limit_query = int(os.getenv("PRODUCTS_OFFER_LIMIT", "20"))
     max_per_day = int(os.getenv("OFFERS_MAX_PER_DAY", "5"))
     interval_s = int(os.getenv("OFFERS_SEND_INTERVAL_SECONDS", "8"))
@@ -446,13 +420,7 @@ def process_daily_product_offers(db: Session, group_to: str) -> int:
             continue
 
         cover = images[0]
-        # cover.url exemplo: "/static/products/1/abc.jpg"
-        rel = cover.url.replace("/static/", "").lstrip("/")
-        file_path = str(UPLOAD_ROOT / rel)
-
-        if not Path(file_path).exists():
-            print(f"[worker] offers: missing file for product {p.id}: {file_path}")
-            continue
+        cover_ref = (cover.url or "").strip()  # ✅ KEY do bucket
 
         title = (
             "🔥 OFERTA DO DIA 🔥\n"
@@ -462,12 +430,15 @@ def process_daily_product_offers(db: Session, group_to: str) -> int:
         )
 
         try:
+            print(f"[worker] offers: loading image product {p.id} from bucket...")
+            img_bytes = load_cover_bytes(cover_ref)
+
             print(
                 f"[worker] offers: encoding image product {p.id} "
                 f"(max_dim={max_dim}, quality={quality}, max_bytes={max_bytes})"
             )
-            body = image_to_data_uri_jpeg_optimized(
-                file_path,
+            body = image_bytes_to_data_uri_jpeg_optimized(
+                img_bytes,
                 max_dim=max_dim,
                 quality=quality,
                 max_bytes=max_bytes,
@@ -487,7 +458,6 @@ def process_daily_product_offers(db: Session, group_to: str) -> int:
                 time.sleep(interval_s)
 
         except BlibsendError as e:
-            # aqui não tem retry em DB (você disse que não quer alterar models)
             print(f"[worker] offers: FAILED product {p.id}: {e}")
 
     print(f"[worker] offers: sent total={sent}")
@@ -535,7 +505,6 @@ def run_loop() -> None:
                     print("[worker] offers: starting...")
                     d = process_daily_product_offers(db, group_to)
 
-                    # só trava se enviou algo
                     if d > 0:
                         mark_offers_sent_today()
                         print("[worker] offers: locked day (sent_today=True)")

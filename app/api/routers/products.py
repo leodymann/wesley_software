@@ -1,28 +1,30 @@
 from __future__ import annotations
 
-import os
 import uuid
-import shutil
-from pathlib import Path
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from api.deps import DBSession
+from api.auth_deps import get_current_user
+
 from infra.models import ProductORM, ProductStatus, ProductImageORM
 from schemas.products import ProductUpdate, ProductOut
 
-from fastapi import Depends
-from api.auth_deps import get_current_user
+from infra.storage import (
+    put_bytes,
+    delete_object,
+    presign_get_url,
+    make_image_key,
+    random_filename,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
-UPLOAD_ROOT = Path("uploads")  # pasta local
-PRODUCTS_DIR = UPLOAD_ROOT / "products"
 ALLOWED_CT = {"image/jpeg", "image/png", "image/webp"}
 
 
@@ -35,7 +37,6 @@ def normalize_chassi(chassi: str) -> str:
 
 
 def _safe_ext(upload: UploadFile) -> str:
-    # tenta inferir extensão de forma simples
     ct = (upload.content_type or "").lower()
     if ct == "image/jpeg":
         return ".jpg"
@@ -46,10 +47,22 @@ def _safe_ext(upload: UploadFile) -> str:
     return ""
 
 
-def _save_uploadfile_to_path(upload: UploadFile, dst_path: Path) -> None:
-    dst_path.parent.mkdir(parents=True, exist_ok=True)
-    with dst_path.open("wb") as buffer:
-        shutil.copyfileobj(upload.file, buffer)
+def _presign_images(product: ProductORM, expires_seconds: int) -> None:
+    """
+    product.images[].url no DB guarda a KEY (ex: "products/12/abc.jpg").
+    Aqui convertemos para URL assinada na resposta, sem salvar no DB.
+    """
+    if not getattr(product, "images", None):
+        return
+    for im in product.images:
+        ref = (im.url or "").strip()
+        if not ref:
+            continue
+        # se já for http(s), mantém (compatibilidade)
+        if ref.startswith("http://") or ref.startswith("https://"):
+            continue
+        im.url = presign_get_url(ref, expires_seconds=expires_seconds)
+
 
 @router.get("/{product_id}", response_model=ProductOut)
 def get_product(product_id: int, db: Session = DBSession):
@@ -59,13 +72,16 @@ def get_product(product_id: int, db: Session = DBSession):
         .where(ProductORM.id == product_id)
     )
     product = db.execute(stmt).scalars().first()
-
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
+
+    expires = int((__import__("os").getenv("S3_PRESIGN_EXPIRES_SECONDS", "3600")))
+    _presign_images(product, expires_seconds=expires)
     return product
+
+
 @router.put("/{product_id}", response_model=ProductOut)
 def update_product(product_id: int, payload: ProductUpdate, db: Session = DBSession):
-    # carrega o produto + imagens para já devolver completo
     stmt = (
         select(ProductORM)
         .options(selectinload(ProductORM.images))
@@ -128,19 +144,21 @@ def update_product(product_id: int, payload: ProductUpdate, db: Session = DBSess
 
     db.flush()
 
-    # garante retorno com imagens carregadas (mesmo após flush)
     stmt2 = (
         select(ProductORM)
         .options(selectinload(ProductORM.images))
         .where(ProductORM.id == product_id)
     )
     updated = db.execute(stmt2).scalars().one()
+
+    expires = int((__import__("os").getenv("S3_PRESIGN_EXPIRES_SECONDS", "3600")))
+    _presign_images(updated, expires_seconds=expires)
     return updated
+
 
 @router.post("", response_model=ProductOut, status_code=201)
 def create_product(
     db: Session = DBSession,
-    # campos (multipart)
     brand: str = Form(..., min_length=2, max_length=60),
     model: str = Form(..., min_length=1, max_length=80),
     year: int = Form(..., ge=1900, le=2100),
@@ -151,7 +169,6 @@ def create_product(
     cost_price: Decimal = Form(default=Decimal("0.00")),
     sale_price: Decimal = Form(default=Decimal("0.00")),
     status: Optional[str] = Form(default=None),
-    # ✅ imagens: 2–4
     images: list[UploadFile] = File(..., description="Envie de 2 a 4 imagens"),
 ):
     # valida quantidade
@@ -188,7 +205,6 @@ def create_product(
         except Exception:
             raise HTTPException(status_code=400, detail="Status de produto inválido.")
 
-    # cria produto
     product = ProductORM(
         brand=brand.strip(),
         model=model.strip(),
@@ -204,65 +220,67 @@ def create_product(
     db.add(product)
     db.flush()  # garante product.id
 
-    saved_paths: list[Path] = []
+    uploaded_keys: list[str] = []
+
     try:
-        # salva imagens e cria registros
+        # ✅ upload bucket + salva KEY no DB
         for idx, img in enumerate(images, start=1):
             ext = _safe_ext(img)
             if not ext:
                 raise HTTPException(status_code=415, detail="Extensão inválida para imagem.")
 
-            filename = f"{uuid.uuid4().hex}{ext}"
-            disk_path = PRODUCTS_DIR / str(product.id) / filename
-            _save_uploadfile_to_path(img, disk_path)
-            saved_paths.append(disk_path)
+            filename = random_filename(ext)
+            key = make_image_key(product.id, filename)
 
-            url = f"/static/products/{product.id}/{filename}"
+            content = img.file.read()
+            if not content:
+                raise HTTPException(status_code=422, detail="Arquivo de imagem vazio.")
+
+            stored_key = put_bytes(
+                content=content,
+                content_type=(img.content_type or "application/octet-stream"),
+                key=key,
+            )
+            uploaded_keys.append(stored_key)
 
             db.add(ProductImageORM(
                 product_id=product.id,
-                url=url,
+                url=stored_key,   # ✅ DB guarda KEY
                 position=idx,
             ))
 
         db.flush()
 
-        # retorna com images carregadas
         stmt = (
             select(ProductORM)
             .options(selectinload(ProductORM.images))
             .where(ProductORM.id == product.id)
         )
         created = db.execute(stmt).scalars().one()
+
+        expires = int((__import__("os").getenv("S3_PRESIGN_EXPIRES_SECONDS", "3600")))
+        _presign_images(created, expires_seconds=expires)
         return created
 
     except HTTPException:
         db.rollback()
-        # limpa arquivos já salvos
-        for p in saved_paths:
+        # limpa objetos já enviados ao bucket
+        for k in uploaded_keys:
             try:
-                p.unlink(missing_ok=True)
+                delete_object(k)
             except Exception:
                 pass
-        # tenta remover pasta do produto se ficar vazia
-        try:
-            (PRODUCTS_DIR / str(product.id)).rmdir()
-        except Exception:
-            pass
         raise
 
     except Exception:
         db.rollback()
-        for p in saved_paths:
+        for k in uploaded_keys:
             try:
-                p.unlink(missing_ok=True)
+                delete_object(k)
             except Exception:
                 pass
-        try:
-            (PRODUCTS_DIR / str(product.id)).rmdir()
-        except Exception:
-            pass
         raise HTTPException(status_code=500, detail="Erro ao salvar produto/imagens.")
+
 
 @router.get("", response_model=list[ProductOut])
 def list_products(
@@ -274,7 +292,7 @@ def list_products(
 ):
     stmt = (
         select(ProductORM)
-        .options(selectinload(ProductORM.images))   # ✅ carrega imagens
+        .options(selectinload(ProductORM.images))
         .order_by(ProductORM.id.desc())
     )
 
@@ -299,4 +317,9 @@ def list_products(
 
     stmt = stmt.limit(limit).offset(offset)
     products = db.execute(stmt).scalars().all()
+
+    expires = int((__import__("os").getenv("S3_PRESIGN_EXPIRES_SECONDS", "3600")))
+    for p in products:
+        _presign_images(p, expires_seconds=expires)
+
     return products
