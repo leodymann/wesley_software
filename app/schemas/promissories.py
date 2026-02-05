@@ -3,7 +3,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from decimal import Decimal
 from datetime import datetime
-from app.infra.models import PromissoryStatus
+from infra.models import PromissoryStatus
 
 class PromissoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
